@@ -129,6 +129,16 @@ func validateArticleFormData(title string, body string) map[string]string {
 	return errors
 }
 
+func (a Article) Link() string {
+	showURL, err := router.Get("articles.show").URL("id", strconv.FormatInt(a.ID, 10))
+	if err != nil {
+		checkError(err)
+		return ""
+	}
+
+	return showURL.String()
+}
+
 func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	storeURL, _ := router.Get("articles.store").URL()
@@ -355,7 +365,32 @@ func articlesShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func articlesIndexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "访问文章列表")
+	rows, err := db.Query("select * from articles")
+	checkError(err)
+	defer rows.Close()
+
+	var articles []Article
+	// 2.循环读取结果
+	for rows.Next() {
+		var article Article
+		// 2.1 扫描么一行结果并赋值到一个 article 对象中
+		err := rows.Scan(&article.ID, &article.Title, &article.Body)
+		checkError(err)
+
+		// 2.2 将 article 追加到 articles 中
+		articles = append(articles, article)
+	}
+
+	// 2.3 检测遍历时是否发生错误
+	err = rows.Err()
+	checkError(err)
+
+	// 3.加载模版
+	tmpl, err := template.ParseFiles("resources/views/articles/index.gohtml")
+	checkError(err)
+
+	err = tmpl.Execute(w, articles)
+	checkError(err)
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
